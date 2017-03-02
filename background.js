@@ -3,22 +3,8 @@
  */
 
 (function () {
-    var body = {
-        "data": [
-            {
-                "billCode": "DollarGeneral_PFBt82XDUT1487724836",
-                "mail": "adrianaborges123@hotmail.com",
-                "currency": "USD",
-                "amount": 1,
-                "state": "finish",
-                "return_message": "completed",
-                "return_billCode": "123123"
-            }
-        ]
-    };
-    httpRequestPOST(body, "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/", function (res2) {
-        console.log(res2);
-    });
+
+
 
     //from popup to the background
     chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
@@ -29,7 +15,10 @@
         } else {
             sendResponse('get the json');
             console.log("the json" + message);
-            //调用post
+            //调用
+            httpRequestPOST(message, "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/", function (res2) {
+                console.log(res2);
+            });
         }
     });
     //from background to the action
@@ -72,5 +61,5 @@ function httpRequestPOST(body, url, callback) {
             callback(xhr.responseText);
         }
     };
-    xhr.send(JSON.stringify(body));
+    xhr.send(body);
 }
