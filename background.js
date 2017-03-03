@@ -14,7 +14,7 @@
             sendResponse('已结束');
         } else {
             sendResponse('get the json');
-            console.log("the json" + message);
+            console.log("the json send to kanghao" + message);
             //调用
             httpRequestPOST(message, "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/", function (res2) {
                 console.log(res2);

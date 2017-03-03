@@ -4,15 +4,15 @@
  */
 var payEndStatus;
 var requestCode;
-var postCode;
+var saveCode;
 
 $(document).ready(function () {
-    console.log("in");
 
+    console.log("in");
     //初始化
     payEndStatus = "";
     requestCode = 1;
-    var initCode;
+    var initCodeGet;
     var emailAccount;
     var amountPay;
     var currency;
@@ -23,13 +23,17 @@ $(document).ready(function () {
         function (request, sender, sendResponse) {
             if (request.message == "startBtn") {
                 sendResponse({result: "started"});
-                localStorage.flag = 0;
-                localStorage.paidAccounts = 0;
-                localStorage.initCode = 0;
+                //flag判断用户是否点击了start或者stop
+                //initCode是否请求了的标识符，initCode=0是可以看开始请求
+                chrome.storage.local.set({flag: 0, initCode: 0}, function () {
+                    console.log("开始，准备数据初始化");
+                });
+
             } else if (request.message == "stopBtn") {
                 sendResponse({result: "stopped"});
-                localStorage.flag = 1;
-                console.log("stop");
+                chrome.storage.local.set({flag: 1}, function () {
+                    console.log("停止")
+                });
                 return;
             } else {
                 sendResponse({result: "invalid request"});
@@ -38,30 +42,53 @@ $(document).ready(function () {
     //检查付款一页面
     var firPageFea = $(".optional").html();
     if (firPageFea != undefined) {
-        initCode = Number(localStorage.initCode);
-        if (initCode == 0) {
-            console.log("请求");
-            requestCode = 0;
-            localStorage.initCode = 1;
-        }
+        chrome.storage.local.get("initCode", function (value) {
+            if (value.initCode != undefined) {
+                initCodeGet = value.initCode;
+                //检查是否是初始化状态
+                if (initCodeGet == 0) {
+                    console.log("向服务器请求数据");
+                    //requestCode是向服务器的标识符，0代表可以请求
+                    requestCode = 0;
+                    chrome.storage.local.set({initCode: 1}, function () {
+                        console.log("初始化已完成");
+                    });
+
+                }
+            }
+
+        });
+
     }
     //监听background
     var port = chrome.runtime.connect({name: "mycontentscript"});
     port.onMessage.addListener(function (message, sender) {
         if (message.greeting === "hello") {
             if (requestCode == 0) {
+                //success信息让background向服务器请求
                 port.postMessage({status: "success"});
             }
 
         } else if (message.code == 200) {
+            //告诉BACKGROUN我已经成功请求到了数据
             port.postMessage({getJSONStatus: "success"});
             var dataObj = message;
+            if(message.data.length==0){
+                alert("数据已经发完");
+                return;
+            }
             console.log(message);
-            localStorage.dataObj = JSON.stringify(dataObj);
+            //这里的写法再确定一下
+            chrome.storage.local.set({dataGet: JSON.stringify(dataObj)}, function () {
+                console.log("请求数据收到");
+            });
+
             currency = dataObj.data[0].currency;
             emailAccount = dataObj.data[0].mail;
             amountPay = Number(dataObj.data[0].amount);
-            localStorage.billState = "lock";
+            chrome.storage.local.set({billState: "lock"}, function () {
+                console.log("状态lock");
+            });
             setTimeout(firClick(currency, emailAccount, amountPay), 3000);
             console.log("start");
         }
@@ -69,42 +96,55 @@ $(document).ready(function () {
     });
 
     //开始结束按钮动作标记检查
-    var flag = localStorage.flag;
-    if (flag == "0") {
-        console.log("run");
-        setInterval(firTurnCheck(), 3000);
-        setInterval(secTurnCheck(), 3000);
-    } else if (flag == "1") {
-        console.log("stop");
-        return;
-    }
+
+    chrome.storage.local.get("flag", function (res2) {
+        var actStatus = res2.flag;
+        if (actStatus == 0) {
+            console.log("run");
+            setInterval(firTurnCheck(), 3000);
+            setInterval(secTurnCheck(), 3000);
+        } else if (actStatus == 1) {
+            console.log("stop");
+            return;
+        }
+
+    });
 
     //订单结束标记检查
-    var billObj=document.getElementById("mer-txn-id");
-    console.log(billObj);
-
     var tradeId = $("#mer-txn-id").html();
     console.log(tradeId);
-
-    var timer=setInterval(function () {
-        if(tradeId!=undefined){
+    var timer = setInterval(function () {
+        if (tradeId != undefined) {
             clearInterval(timer);
             payEndInfoGet();
-            localStorage.initCode = 0;
-            var paidNumbers = Number(localStorage.paidAccounts) + 1;
-            localStorage.paidAccounts = paidNumbers;
-            console.log(tradeId, paidNumbers);
+            chrome.storage.local.set({initCode: 0}, function () {
+                console.log("初始化");
+            });
         }
-    },2000);
+    }, 2000);
 
     var homeFlag = $("#js_engagementActionTrigger").html();
     if (homeFlag != undefined) {
         turnToPayPage();
     }
 
+    var navFea=document.getElementById("navMenu");
+    if(navFea==undefined||navFea==null){
+        returnDataGenerate("lock","Fatal Failure","null");
+        chrome.storage.local.get("dataRE",function (res0) {
+            var obj0=res0.dataRE;
+            chrome.runtime.sendMessage(obj0, function (response) {
+                console.log(response);
+                chrome.storage.local.set({initCode:0},function (res7) {
+                    console.log("fatal init");
+                });
+                window.location.href="https://www.paypal.com/myaccount/home";
+            });
+        });
+    }
 });
 
-
+//第一个页面的模拟点击
 function firClick(currency, emailAccount, amountReceiver) {
     $("#amount_ccode").val(currency);
     $("#email").focus();
@@ -119,16 +159,41 @@ function getFocus() {
 }
 
 function firTurnCheck() {
-    var checkStatus = $("#box h3").html();
-    //特征点匹配
-    if (checkStatus == "Review your payment and send") {
-        var intervalID = setInterval(firTurnCheck, 3000);
-        clearInterval(intervalID);
-        var dataObj = JSON.parse(localStorage.dataObj);
-        var msgSub = dataObj.data[0].title;
-        var msg = dataObj.data[0].message;
-        setTimeout(secClick(msgSub, msg), 1000);
+    var msgBox = $("#messageBox div:first p").html();
+    if (msgBox == "This recipient is currently unable to receive money.") {
+        returnDataGenerate("lock", "This recipient is currently unable to receive money.", "null");
+        var timer=setInterval(function () {
+            if(saveCode==0){
+                clearInterval(timer);
+                rejectError();
+            }
+        },1000);
+    } else {
+        var checkStatus = $("#box h3").html();
+        //特征点匹配
+        if (checkStatus == "Review your payment and send") {
+            var intervalID = setInterval(firTurnCheck, 3000);
+            clearInterval(intervalID);
+            chrome.storage.local.get("dataGet", function (res) {
+                var dataObj = JSON.parse(res.dataGet);
+                var msgSub = dataObj.data[0].title;
+                var msg = dataObj.data[0].message;
+                setTimeout(secClick(msgSub, msg), 1000);
+            });
+        }
+
     }
+
+}
+function rejectError() {
+    chrome.storage.local.get("dataRE", function (res4) {
+        var obj4 = res4.dataRE;
+        console.log(obj4);
+        chrome.runtime.sendMessage(obj4, function (response) {
+            console.log(response);
+        });
+    });
+
 }
 function secClick(msgSubject, msg) {
     var registerSta = registerCheck();
@@ -140,14 +205,18 @@ function secClick(msgSubject, msg) {
         $("#submit-button-01").click();
     } else if (registerSta == "register_never") {
         var regStatus = $(".reputation").html();
-        var reJson = returnDataGenerate("lock", regStatus, "null");
-        localStorage.reJSON = JSON.stringify(reJson);
-        chrome.runtime.sendMessage(localStorage.reJSON, function (response) {
-            console.log(response);
-        });
+         returnDataGenerate("lock", regStatus, "null");
+         chrome.storage.local.get("dataRE",function (res6) {
+             var obj6=res6.dataRE;
+             chrome.runtime.sendMessage(obj6, function (response) {
+                 console.log(response);
+             });
+         });
         console.log(registerSta);
-        turnToHome();
-        localStorage.initCode = 0;
+        chrome.storage.local.set({initCode: 0}, function () {
+            console.log("初始化");
+            turnToHome();
+        });
     }
 }
 //注册检查
@@ -168,7 +237,9 @@ function secTurnCheck() {
         var intervalID = setInterval(secTurnCheck, 3000);
         clearInterval(intervalID);
         payEndCheck();
-        localStorage.billState = "finish"
+        chrome.storage.local.set({billState: "finish"}, function () {
+            console.log("当前状态finish");
+        });
     }
 }
 function payEndCheck() {
@@ -178,13 +249,21 @@ function payEndCheck() {
 function payEndInfoGet() {
     var tradeNumber = $("#mer-txn-id").html();
     var payEndStatus = $(".mer-status-class").html();
-    var billState = localStorage.billState;
-    console.log(tradeNumber,payEndStatus,billState);
-    localStorage.reJSON = JSON.stringify(returnDataGenerate(billState, payEndStatus, tradeNumber));
-    chrome.runtime.sendMessage(localStorage.reJSON, function (response) {
-        console.log(response);
+    chrome.storage.local.get("billState", function (res3) {
+        var billStatus = res3.billState;
+        console.log(tradeNumber, payEndStatus, billStatus);
+        returnDataGenerate(billStatus,payEndStatus,tradeNumber);
+        chrome.storage.local.get("dataRE", function (res5) {
+            var obj5 = res5.dataRE;
+            chrome.runtime.sendMessage(obj5, function (response) {
+                console.log(response);
+                turnToHome();
+            });
+        });
+
     });
-    turnToHome();
+
+
 }
 function turnToHome() {
     var link = $("#navMenu ul:first li:first a").attr('href');
@@ -196,17 +275,23 @@ function turnToPayPage() {
     window.location.href = payLink;
 }
 function returnDataGenerate(billStatus, reMsg, reBillCode) {
-    var billInfo = JSON.parse(localStorage.dataObj);
-    var returnObj = {"data": []};
-    var record = {
-        "billCode": billInfo.data[0].billCode,
-        "mail": billInfo.data[0].mail,
-        "currency": billInfo.data[0].currency,
-        "amount": Number(billInfo.data[0].amount),
-        "state": billStatus,
-        "return_message": reMsg,
-        "return_billCode": reBillCode
-    };
-    returnObj.data.push(record);
-    return returnObj;
+    chrome.storage.local.get("dataGet", function (result) {
+        console.log("最终订单已经拿到");
+        var billInfo = JSON.parse(result.dataGet);
+        var returnObj = {"data": []};
+        var record = {
+            "billCode": billInfo.data[0].billCode,
+            "mail": billInfo.data[0].mail,
+            "currency": billInfo.data[0].currency,
+            "amount": Number(billInfo.data[0].amount),
+            "state": billStatus,
+            "return_message": reMsg,
+            "return_billCode": reBillCode
+        };
+        returnObj.data.push(record);
+        chrome.storage.local.set({dataRE: JSON.stringify(returnObj)}, function () {
+            console.log("返回订单已经存入");
+            saveCode=0;
+        });
+    });
 }

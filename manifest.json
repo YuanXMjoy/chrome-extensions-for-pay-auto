@@ -14,7 +14,6 @@
     "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/",
     "storage"
   ],
-
   "content_scripts": [
     {
       "matches": [
