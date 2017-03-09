@@ -2,6 +2,7 @@ $(document).ready(function () {
     //from popup to the background
     $("#startBtn").click(function () {
         chrome.runtime.sendMessage('start', function (response) {
+            $("#btnStatus").html(response);
             console.log(response);
         });
         chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {

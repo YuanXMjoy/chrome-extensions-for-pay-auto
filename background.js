@@ -4,17 +4,19 @@
 
 (function () {
 
-
-
     //from popup to the background
     chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         if (message == 'start') {
             sendResponse('已开始');
         } else if (message == 'stop') {
             sendResponse('已结束');
-        } else {
+        }else if(message.result=='started'||message.result=='stopped'||message.result=='invalid request'){
+
+        }else if(message.status=='success'||message.status=='successJSON'){
+
+        }else {
             sendResponse('get the json');
-            console.log("the json send to kanghao" + message);
+            console.log("the json send " + message);
             //调用
             httpRequestPOST(message, "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/", function (res2) {
                 console.log(res2);
@@ -31,7 +33,7 @@
                     console.log(dataGet);
                     port.postMessage(dataGet);
                 });
-            } else if (msg.getJSONStatus == "success") {
+            } else if (msg.status == "successJSON") {
                 port.postMessage({status: "ready to post"});
 
 
