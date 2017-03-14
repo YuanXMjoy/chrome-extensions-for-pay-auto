@@ -10,8 +10,8 @@
   "permissions": [
     "tabs",
     //这里需要配置下跨域请求的地址
-    "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_send_pull/",
-    "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/",
+    "http://ec2-52-91-89-74.compute-1.amazonaws.com:8010/sendcard/paypal_send_pull/",
+    "http://ec2-52-91-89-74.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/",
     "storage"
   ],
   "content_scripts": [

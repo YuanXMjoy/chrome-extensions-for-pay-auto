@@ -18,7 +18,7 @@
             sendResponse('get the json');
             console.log("the json send " + message);
             //调用
-            httpRequestPOST(message, "http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/", function (res2) {
+            httpRequestPOST(message, "http://ec2-52-91-89-74.compute-1.amazonaws.com:8010/sendcard/paypal_order_notify/", function (res2) {
                 console.log(res2);
             });
         }
@@ -28,7 +28,7 @@
         port.postMessage({greeting: "hello"});
         port.onMessage.addListener(function (msg) {
             if (msg.status == "success") {
-                httpRequestGET("http://ec2-54-235-237-146.compute-1.amazonaws.com:8010/sendcard/paypal_send_pull/" + '?' + Math.random(), function (res) {
+                httpRequestGET("http://ec2-52-91-89-74.compute-1.amazonaws.com:8010/sendcard/paypal_send_pull/" + '?' + Math.random(), function (res) {
                     var dataGet = JSON.parse(res);
                     console.log(dataGet);
                     port.postMessage(dataGet);
